@@ -1,6 +1,6 @@
 export enum Direction {
-  Forward = "F",
-  Backward = "B",
+  Forward = "F", // away from the solver (+x)
+  Backward = "B", // towards the solver (-x)
   Left = "L",
   Right = "R",
   Up = "U",
@@ -21,6 +21,8 @@ interface Coordinate {
   z: number;
 }
 
+const ORIGIN: Coordinate = { x: 0, y: 0, z: 0 };
+
 function areEqual(a: Coordinate, b: Coordinate) {
   return a.x === b.x && a.y === b.y && a.z === b.z;
 }
@@ -30,21 +32,7 @@ interface Cell {
   step: Step;
 }
 
-interface Cube {
-  cells: Cell[];
-  position: Coordinate;
-  direction: Direction;
-}
-
-const INITIAL_CUBE: Cube = {
-  cells: [],
-  position: {
-    x: 0,
-    y: 0,
-    z: 0,
-  },
-  direction: Direction.Forward,
-};
+type Cube = Cell[];
 
 interface BoundingCube {
   minX: number;
@@ -84,18 +72,18 @@ function getNewPosition(position: Coordinate, direction: Direction) {
 }
 
 const addStep = (cube: Cube, step: Step): Cube => {
-  const cells = [...cube.cells];
-  let position = cube.position;
+  const cells = [...cube];
+  let position = cube.length === 0 ? ORIGIN : cube[cube.length - 1].coordinate;
   if (step.id === 1) cells.push({ coordinate: position, step });
   for (let i = 1; i < step.length; i++) {
     position = getNewPosition(position, step.direction);
     cells.push({ coordinate: position, step });
   }
-  return { cells, position, direction: step.direction };
+  return cells;
 };
 
 const getBoundingCube = (cube: Cube): BoundingCube =>
-  cube.cells
+  cube
     .map((cell) => cell.coordinate)
     .reduce(
       (bcube, { x, y, z }) => ({
@@ -118,9 +106,7 @@ export function printCube(solution: Solution) {
       let row = "";
       for (let y = bound.minY; y <= bound.maxY; y++) {
         const current: Coordinate = { x, y, z };
-        const cells = cube.cells.filter((cell) =>
-          areEqual(cell.coordinate, current)
-        );
+        const cells = cube.filter((cell) => areEqual(cell.coordinate, current));
         const content = (() => {
           if (cells.length === 0) return "  ";
           if (cells.length === 1)
@@ -137,8 +123,7 @@ export function printCube(solution: Solution) {
 export const formatSolution = (solution: Solution): string =>
   solution.map((step) => `${step.length}${step.direction}`).join("/");
 
-const getCube = (solution: Solution): Cube =>
-  solution.reduce(addStep, INITIAL_CUBE);
+const getCube = (solution: Solution): Cube => solution.reduce(addStep, []);
 
 const getAllPossibleNextSteps = (length: number, id: number): Step[] =>
   ALL_DIRECTIONS.map((direction) => ({
@@ -154,8 +139,8 @@ function isValid(solution: Solution, size: number) {
   if (bound.maxY - bound.minY >= size) return false;
   if (bound.maxZ - bound.minZ >= size) return false;
   if (
-    cube.cells.some((a) =>
-      cube.cells.some((b) => a !== b && areEqual(a.coordinate, b.coordinate))
+    cube.some((a) =>
+      cube.some((b) => a !== b && areEqual(a.coordinate, b.coordinate))
     )
   )
     return false;
